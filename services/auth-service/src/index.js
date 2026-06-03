@@ -146,7 +146,7 @@ app.post('/auth/register', registerValidation, async (req, res, next) => {
     const user = existing
       ? await prisma.user.update({
           where: { email },
-          data: { firstName, lastName, name, password: hashedPassword, role: 'USER', isVerified: false },
+          data: { firstName, lastName, name, password: hashedPassword, role: 'USER', isVerified: false, deletedAt: null },
         })
       : await prisma.user.create({
           data: { firstName, lastName, name, email, password: hashedPassword, role: 'USER', isVerified: false },
@@ -172,12 +172,20 @@ app.post('/auth/verify-otp', otpValidation, async (req, res, next) => {
     if (sendValidationErrors(req, res)) return;
 
     const { email, otp } = req.body;
-    const user = await prisma.user.findFirst({ where: { email, deletedAt: null } });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    if (user.isVerified) return res.status(400).json({ success: false, message: 'Email already verified. Please log in.' });
-
     const otpRecord = await verifyOtpRecord({ email, purpose: 'REGISTRATION', code: otp });
     if (!otpRecord) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+
+    const user = await prisma.user.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          ...(otpRecord.userId ? [{ id: otpRecord.userId }] : []),
+          { email: { equals: email, mode: 'insensitive' } },
+        ],
+      },
+    });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.isVerified) return res.status(400).json({ success: false, message: 'Email already verified. Please log in.' });
 
     const verifiedUser = await prisma.user.update({
       where: { id: user.id },
@@ -198,7 +206,9 @@ app.post('/auth/resend-otp', [body('email').isEmail().normalizeEmail()], async (
   try {
     if (sendValidationErrors(req, res)) return;
 
-    const user = await prisma.user.findFirst({ where: { email: req.body.email, deletedAt: null } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: req.body.email, mode: 'insensitive' }, deletedAt: null },
+    });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     if (user.isVerified) return res.status(400).json({ success: false, message: 'Email already verified. Please log in.' });
 

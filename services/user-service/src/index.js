@@ -157,18 +157,32 @@ app.post('/users', authMiddleware, roleMiddleware('ADMIN'), createValidation, as
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        name: `${firstName} ${lastName}`,
-        email,
-        password: hashedPassword,
-        role,
-        isVerified: true,
-      },
-      select: USER_SELECT,
-    });
+    const user = existing
+      ? await prisma.user.update({
+          where: { email },
+          data: {
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`,
+            password: hashedPassword,
+            role,
+            isVerified: true,
+            deletedAt: null,
+          },
+          select: USER_SELECT,
+        })
+      : await prisma.user.create({
+          data: {
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`,
+            email,
+            password: hashedPassword,
+            role,
+            isVerified: true,
+          },
+          select: USER_SELECT,
+        });
 
     logger.info(`User created by admin ${req.user.id}: ${email}`);
     res.status(201).json({ success: true, message: 'User created successfully', data: user });

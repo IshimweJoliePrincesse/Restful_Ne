@@ -38,7 +38,9 @@ export default function VerifyOtp() {
     setResendMessage('');
     setLoading(true);
     try {
-      await verifyOtp(email.trim(), otp);
+      const normalizedEmail = email.trim().toLowerCase();
+      await verifyOtp(normalizedEmail, otp);
+      setEmail(normalizedEmail);
       toast.success('OTP verified. Please log in with your credentials.');
       navigate('/login');
     } catch (err) {
@@ -59,7 +61,9 @@ export default function VerifyOtp() {
     setResendMessage('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/resend-otp', { email: email.trim() });
+      const normalizedEmail = email.trim().toLowerCase();
+      const res = await api.post('/auth/resend-otp', { email: normalizedEmail });
+      setEmail(normalizedEmail);
       toast.success('OTP sent');
       setResendMessage(res.data.message);
     } catch (err) {

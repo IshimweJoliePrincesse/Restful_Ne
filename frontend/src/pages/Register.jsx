@@ -20,9 +20,10 @@ export default function Register() {
   // Submit handler creates the account, triggers OTP email, and opens verification.
   const onSubmit = async (values) => {
     try {
-      await registerUser(values);
+      const result = await registerUser(values);
+      const verificationEmail = result.data?.email || values.email.trim().toLowerCase();
       toast.success('Registration successful. Check your email for OTP.');
-      navigate('/verify-otp', { state: { email: values.email } });
+      navigate('/verify-otp', { state: { email: verificationEmail } });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed');
     }
