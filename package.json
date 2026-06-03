@@ -1,0 +1,43 @@
+{
+  "name": "fire-extinguisher-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fire Extinguisher Management System - RESTful Microservices",
+  "scripts": {
+    "db:generate": "npm run generate --workspace=database",
+    "db:push": "npm run push --workspace=database",
+    "db:studio": "npm run studio --workspace=database",
+    "db:seed": "npm run seed --workspace=database",
+    "dev:auth": "npm run dev --workspace=auth-service",
+    "dev:user": "npm run dev --workspace=user-service",
+    "dev:extinguisher": "npm run dev --workspace=extinguisher-service",
+    "dev:inspection": "npm run dev --workspace=inspection-service",
+    "dev:maintenance": "npm run dev --workspace=maintenance-service",
+    "dev:reporting": "npm run dev --workspace=reporting-service",
+    "dev:notification": "npm run dev --workspace=notification-service",
+    "dev:gateway": "npm run dev --workspace=gateway",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:services": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:extinguisher\" \"npm run dev:inspection\" \"npm run dev:maintenance\" \"npm run dev:reporting\" \"npm run dev:notification\"",
+    "dev": "concurrently \"npm run dev:services\" \"npm run dev:frontend\"",
+    "setup": "npm install && npm run db:generate && npm run db:push"
+  },
+  "workspaces": [
+    "database",
+    "shared",
+    "gateway",
+    "services/auth-service",
+    "services/user-service",
+    "services/extinguisher-service",
+    "services/inspection-service",
+    "services/maintenance-service",
+    "services/reporting-service",
+    "services/notification-service",
+    "frontend"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "eslint": "^10.4.1",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.3"
+  }
+}

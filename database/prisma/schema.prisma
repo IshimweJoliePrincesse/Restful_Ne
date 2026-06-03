@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// System roles used by JWT authentication and role based authorization.
+/// ADMIN manages the platform, INSPECTOR performs inspections, and USER owns or monitors assigned extinguishers.
+enum Role {
+  ADMIN
+  INSPECTOR
+  USER
+}
+
+/// Physical roles table required by the project brief.
+/// Business logic still stores the active role on User.role for fast JWT/RBAC checks.
+model RoleRecord {
+  id          String    @id @default(uuid())
+  name        Role      @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@map("roles")
+  @@index([deletedAt])
+}
+
+/// OTP purpose separates registration codes from password reset codes for auditability and safer validation.
+enum OtpPurpose {
+  REGISTRATION
+  PASSWORD_RESET
+}
+
+/// Fire extinguisher inventory status.
+/// ACTIVE means the extinguisher is installed and available for safety use.
+enum ExtinguisherStatus {
+  ACTIVE
+  UNDER_MAINTENANCE
+  EXPIRED
+  RETIRED
+}
+
+/// Approved extinguisher types from the project requirements.
+enum ExtinguisherType {
+  WATER
+  CO2
+  FOAM
+  DRY_CHEMICAL
+}
+
+/// Approved extinguisher cylinder sizes from the project requirements.
+enum ExtinguisherSize {
+  SIZE_2_5_LB
+  SIZE_5_LB
+  SIZE_9_LB
+  SIZE_12_LB
+}
+
+/// Inspection schedule lifecycle.
+enum InspectionStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
+
+/// Notification delivery and user response lifecycle.
+enum NotificationStatus {
+  SENT
+  RESPONDED
+  IGNORED
+  ESCALATED
+}
+
+/// Report category controls which real-time aggregation is generated.
+enum ReportType {
+  INVENTORY
+  INSPECTION
+  COMPLIANCE
+  MAINTENANCE
+}
+
+/// Export format requested by users when downloading reports.
+enum ExportFormat {
+  PDF
+  CSV
+}
+
+/// Application user account.
+/// Security notes: passwords are bcrypt hashes, OTPs are stored separately in Otp, and soft deletion preserves audit history.
+model User {
+  id                     String               @id @default(uuid())
+  firstName              String?
+  lastName               String?
+  name                   String
+  email                  String               @unique
+  password               String
+  role                   Role                 @default(USER)
+  isVerified             Boolean              @default(false)
+  otp                    String?
+  otpExpiresAt           DateTime?
+  deletedAt              DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  extinguishers          FireExtinguisher[]
+  notifications          Notification[]
+  otps                   Otp[]
+  refreshTokens          RefreshToken[]
+  assignedInspections    InspectionSchedule[] @relation("AssignedInspector")
+  createdInspections     InspectionSchedule[] @relation("InspectionCreator")
+  inspectionResults      InspectionResult[]   @relation("InspectionCompleter")
+  maintenanceLogs        MaintenanceLog[]     @relation("MaintenanceCreator")
+  reports                Report[]
+  auditLogs              AuditLog[]
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+/// One-time passcode storage for registration and password reset flows.
+/// Inputs are email and OTP code; outputs are verification status and expiration checks.
+/// Security notes: production systems should hash OTP values before persistence; expiration and consumption fields limit reuse.
+model Otp {
+  id         String     @id @default(uuid())
+  email      String
+  code       String
+  purpose    OtpPurpose
+  userId     String?
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+}
+
+/// Refresh token allowlist for logout and token rotation.
+/// Security notes: tokenHash should contain a hash of the refresh token, never the raw token.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Fire extinguisher inventory record.
+/// The legacy code field is retained as a display/inventory code while serialNumber supports the required domain model.
+model FireExtinguisher {
+  id                  String               @id @default(uuid())
+  code                String               @unique
+  serialNumber        String?              @unique
+  location            String?
+  type                String
+  extinguisherType    ExtinguisherType?
+  size                String?
+  extinguisherSize    ExtinguisherSize?
+  installationDate    DateTime?
+  expiryDate          DateTime
+  status              ExtinguisherStatus   @default(ACTIVE)
+  userId              String?
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  notifications       Notification[]
+  inspectionSchedules InspectionSchedule[]
+  inspectionResults   InspectionResult[]
+  maintenanceLogs     MaintenanceLog[]
+
+  @@index([status])
+  @@index([expiryDate])
+  @@index([location])
+  @@index([deletedAt])
+}
+
+/// Notification record for email and in-app alerts.
+/// Business logic uses status to prevent repeated escalations and to capture user responses.
+model Notification {
+  id             String             @id @default(uuid())
+  userId         String
+  extinguisherId String?
+  message        String
+  status         NotificationStatus @default(SENT)
+  sentAt         DateTime           @default(now())
+  respondedAt    DateTime?
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extinguisher   FireExtinguisher?  @relation(fields: [extinguisherId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([userId, status])
+  @@index([sentAt])
+}
+
+/// Scheduled inspection assignment.
+/// Inputs include extinguisher, inspector, scheduled date, and creator; outputs drive pending/completed/overdue lists.
+model InspectionSchedule {
+  id             String             @id @default(uuid())
+  extinguisherId String
+  inspectorId    String
+  createdById    String?
+  scheduledDate  DateTime
+  status         InspectionStatus   @default(PENDING)
+  notes          String?
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  extinguisher   FireExtinguisher   @relation(fields: [extinguisherId], references: [id], onDelete: Cascade)
+  inspector      User               @relation("AssignedInspector", fields: [inspectorId], references: [id], onDelete: Restrict)
+  createdBy      User?              @relation("InspectionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  result         InspectionResult?
+
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([inspectorId])
+}
+
+/// Completed inspection result.
+/// Business logic captures compliance evidence and updates the schedule to COMPLETED.
+model InspectionResult {
+  id             String             @id @default(uuid())
+  scheduleId     String             @unique
+  extinguisherId String
+  completedById  String
+  completedAt    DateTime           @default(now())
+  status         InspectionStatus   @default(COMPLETED)
+  pressureOk     Boolean            @default(true)
+  pinIntact      Boolean            @default(true)
+  labelReadable  Boolean            @default(true)
+  issuesFound    String?
+  recommendations String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  schedule       InspectionSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  extinguisher   FireExtinguisher   @relation(fields: [extinguisherId], references: [id], onDelete: Cascade)
+  completedBy    User               @relation("InspectionCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+
+  @@index([extinguisherId])
+  @@index([completedAt])
+}
+
+/// Maintenance activity log.
+/// Inputs describe action taken, issues, notes, and recommendations; outputs support maintenance history and reports.
+model MaintenanceLog {
+  id             String           @id @default(uuid())
+  extinguisherId String
+  createdById    String?
+  actionTaken    String
+  maintenanceDate DateTime
+  issuesIdentified String?
+  notes          String?
+  recommendations String?
+  deletedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  extinguisher   FireExtinguisher @relation(fields: [extinguisherId], references: [id], onDelete: Cascade)
+  createdBy      User?            @relation("MaintenanceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([extinguisherId])
+  @@index([maintenanceDate])
+  @@index([deletedAt])
+}
+
+/// Generated report metadata and cached payload.
+/// Report payload is JSON so inventory, compliance, inspection, and maintenance reports can evolve without schema churn.
+model Report {
+  id          String       @id @default(uuid())
+  type        ReportType
+  title       String
+  payload     Json
+  generatedById String?
+  generatedBy User?        @relation(fields: [generatedById], references: [id], onDelete: SetNull)
+  exportFormat ExportFormat?
+  createdAt   DateTime     @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+}
+
+/// Audit trail for security and business events.
+/// Security notes: records should not store secrets; metadata is JSON for sanitized request context.
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
