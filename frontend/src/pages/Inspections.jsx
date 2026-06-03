@@ -34,7 +34,8 @@ export default function Inspections() {
   });
 
   // Page queries load inspections, available extinguishers, and admin inspector options.
-  const inspections = useQuery({ queryKey: ['inspections', params], queryFn: async () => (await api.get('/inspections', { params })).data });
+  const inspectionQueryParams = params.status ? params : { ...params, status: undefined };
+  const inspections = useQuery({ queryKey: ['inspections', params], queryFn: async () => (await api.get('/inspections', { params: inspectionQueryParams })).data });
   const extinguishers = useQuery({ queryKey: ['extinguishers-options'], queryFn: async () => (await api.get('/extinguishers', { params: { limit: 100 } })).data.data });
   const inspectors = useQuery({ queryKey: ['inspectors'], queryFn: async () => (await api.get('/users/inspectors')).data.data, enabled: isAdmin });
 
