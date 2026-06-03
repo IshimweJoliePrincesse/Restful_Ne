@@ -25,9 +25,11 @@ const { seedAdminUser } = require('./seedAdmin');
 const app = express();
 const PORT = process.env.AUTH_PORT || 3001;
 
+// Service middleware parses JSON and applies shared security controls.
 app.use(express.json());
 applySecurity(app, cors, helmet, logger, 'auth-service');
 
+// Validation helper returns consistent 400 responses for invalid route inputs.
 function sendValidationErrors(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -37,10 +39,12 @@ function sendValidationErrors(req, res) {
   return false;
 }
 
+// OTP generator produces short numeric codes for email verification flows.
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// OTP creation stores a hashed code with purpose and expiration metadata.
 async function createOtp({ email, userId, purpose }) {
   const code = generateOtp();
   const codeHash = await bcrypt.hash(code, 12);
@@ -53,6 +57,7 @@ async function createOtp({ email, userId, purpose }) {
   return { code, expiresAt };
 }
 
+// OTP verification checks latest valid code and marks it consumed on success.
 async function verifyOtpRecord({ email, purpose, code }) {
   const otpRecord = await prisma.otp.findFirst({
     where: { email, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
@@ -71,10 +76,12 @@ async function verifyOtpRecord({ email, purpose, code }) {
   return otpRecord;
 }
 
+// Refresh tokens are stored as hashes so raw token values are never persisted.
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+// Token issuer creates an access/refresh pair and stores the refresh-token allowlist entry.
 async function issueTokenPair(user) {
   const tokenPayload = { id: user.id, email: user.email, role: user.role };
   const accessToken = generateToken(tokenPayload);
@@ -96,6 +103,7 @@ async function issueTokenPair(user) {
   };
 }
 
+// Registration validation enforces the required account identity and password policy.
 const registerValidation = [
   body('firstName').trim().isLength({ min: 2, max: 50 }).withMessage('First name must be 2-50 characters'),
   body('lastName').trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be 2-50 characters'),
@@ -105,16 +113,19 @@ const registerValidation = [
     .withMessage('Password must include uppercase, lowercase, number, and symbol'),
 ];
 
+// Login validation checks required credentials before authentication.
 const loginValidation = [
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
+// OTP validation is shared by registration verification and password reset.
 const otpValidation = [
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
   body('otp').trim().matches(/^\d{6}$/).withMessage('OTP must be exactly 6 digits'),
 ];
 
+// Registration route creates or refreshes an unverified USER account and emails an OTP.
 app.post('/auth/register', registerValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -155,6 +166,7 @@ app.post('/auth/register', registerValidation, async (req, res, next) => {
   }
 });
 
+// Verification route consumes the registration OTP and activates the account.
 app.post('/auth/verify-otp', otpValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -181,6 +193,7 @@ app.post('/auth/verify-otp', otpValidation, async (req, res, next) => {
   }
 });
 
+// Resend route issues a fresh registration OTP for unverified accounts.
 app.post('/auth/resend-otp', [body('email').isEmail().normalizeEmail()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -197,6 +210,7 @@ app.post('/auth/resend-otp', [body('email').isEmail().normalizeEmail()], async (
   }
 });
 
+// Login route verifies credentials and returns a new token pair.
 app.post('/auth/login', loginValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -218,6 +232,7 @@ app.post('/auth/login', loginValidation, async (req, res, next) => {
   }
 });
 
+// Refresh route rotates refresh tokens and rejects revoked or expired tokens.
 app.post('/auth/refresh', [body('refreshToken').notEmpty().withMessage('Refresh token is required')], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -239,6 +254,7 @@ app.post('/auth/refresh', [body('refreshToken').notEmpty().withMessage('Refresh 
   }
 });
 
+// Logout route revokes active refresh tokens for the authenticated user.
 app.post('/auth/logout', authMiddleware, async (req, res, next) => {
   try {
     const tokenHash = req.body.refreshToken ? hashToken(req.body.refreshToken) : null;
@@ -253,6 +269,7 @@ app.post('/auth/logout', authMiddleware, async (req, res, next) => {
   }
 });
 
+// Forgot-password route sends reset OTPs without exposing account existence.
 app.post('/auth/forgot-password', [body('email').isEmail().normalizeEmail()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -270,6 +287,7 @@ app.post('/auth/forgot-password', [body('email').isEmail().normalizeEmail()], as
   }
 });
 
+// Reset-password route consumes OTP, updates the password, and revokes sessions.
 app.post('/auth/reset-password', [
   ...otpValidation,
   body('password')
@@ -298,6 +316,7 @@ app.post('/auth/reset-password', [
   }
 });
 
+// Change-password route verifies the current password before replacing it.
 app.post('/auth/change-password', authMiddleware, [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword')
@@ -326,6 +345,7 @@ app.post('/auth/change-password', authMiddleware, [
   }
 });
 
+// Profile route returns the authenticated user's safe account details.
 app.get('/auth/me', authMiddleware, async (req, res, next) => {
   try {
     const user = await prisma.user.findFirst({
@@ -339,10 +359,12 @@ app.get('/auth/me', authMiddleware, async (req, res, next) => {
   }
 });
 
+// Health endpoint supports service availability checks.
 app.get('/health', (_req, res) => {
   res.json({ success: true, service: 'auth-service', status: 'healthy' });
 });
 
+// Swagger metadata documents the public contract for authentication.
 registerSwagger(app, {
   title: 'Authentication Service API',
   description: 'Registration, OTP verification, login, refresh token, logout, and password recovery APIs.',
@@ -360,9 +382,11 @@ registerSwagger(app, {
   },
 });
 
+// Shared not-found and error handlers normalize API error responses.
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Service startup restores the default admin and logs readiness.
 app.listen(PORT, async () => {
   try {
     await seedAdminUser();

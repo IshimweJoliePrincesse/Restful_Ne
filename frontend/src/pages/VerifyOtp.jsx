@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { MailCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
 export default function VerifyOtp() {
+  // Route state pre-fills the email from registration when available.
   const location = useLocation();
+
+  // OTP state tracks user input, server feedback, and loading status.
   const [email, setEmail] = useState(location.state?.email || '');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
@@ -14,10 +18,12 @@ export default function VerifyOtp() {
   const { verifyOtp } = useAuth();
   const navigate = useNavigate();
 
+  // OTP input accepts digits only and caps the value at six characters.
   const handleOtpChange = (e) => {
     setOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
   };
 
+  // Submit handler verifies the OTP and sends the user back to login.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -43,6 +49,7 @@ export default function VerifyOtp() {
     }
   };
 
+  // Resend handler requests a fresh OTP for the entered email address.
   const handleResend = async () => {
     if (!email) {
       setError('Enter your email address first.');
@@ -63,11 +70,15 @@ export default function VerifyOtp() {
     }
   };
 
+  // Verification screen renders OTP feedback, inputs, and resend controls.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">✉️</div>
+          {/* Verification icon makes the OTP step clear without emoji styling. */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+            <MailCheck className="h-8 w-8" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Verify Email</h1>
           <p className="text-gray-500 mt-1">Enter the 6-digit OTP sent to your email</p>
         </div>

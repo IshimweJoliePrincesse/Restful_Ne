@@ -1,61 +1,76 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import {
+  Bell,
+  ClipboardCheck,
+  FileText,
+  Gauge,
+  KeyRound,
+  ShieldCheck,
+  UserCircle,
+  Users,
+  Wrench,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from './ConfirmDialog';
 
+// Navigation metadata keeps role visibility and icons in one place.
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { path: '/extinguishers', label: 'Extinguishers', icon: '🧯' },
-  { path: '/inspections', label: 'Inspections', icon: '✅' },
-  { path: '/maintenance', label: 'Maintenance', icon: '🛠️' },
-  { path: '/reports', label: 'Reports', icon: '📄' },
-  { path: '/notifications', label: 'Notifications', icon: '🔔' },
-  { path: '/profile', label: 'Profile', icon: '👤' },
-  { path: '/change-password', label: 'Change Password', icon: '🔐' },
-];
-
-const adminItems = [
-  { path: '/users', label: 'Users', icon: '👥' },
+  { path: '/dashboard', label: 'Dashboard', icon: Gauge, roles: ['ADMIN', 'INSPECTOR', 'USER'] },
+  { path: '/users', label: 'Users', icon: Users, roles: ['ADMIN'] },
+  { path: '/extinguishers', label: 'Extinguishers', icon: ShieldCheck, roles: ['ADMIN', 'USER'] },
+  { path: '/inspections', label: 'Inspections', icon: ClipboardCheck, roles: ['ADMIN', 'INSPECTOR', 'USER'] },
+  { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['ADMIN', 'INSPECTOR'] },
+  { path: '/reports', label: 'Reports', icon: FileText, roles: ['ADMIN', 'INSPECTOR'] },
+  { path: '/notifications', label: 'Notifications', icon: Bell, roles: ['ADMIN', 'INSPECTOR', 'USER'] },
+  { path: '/profile', label: 'Profile', icon: UserCircle, roles: ['ADMIN', 'INSPECTOR', 'USER'] },
+  { path: '/change-password', label: 'Change Password', icon: KeyRound, roles: ['ADMIN', 'INSPECTOR', 'USER'] },
 ];
 
 export default function Layout({ children }) {
-  const { user, logout, isAdmin } = useAuth();
+  // Auth and routing hooks drive session-aware layout behavior.
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
 
+  // Logout clears the session before returning the user to the login page.
   const handleLogout = async () => {
     await logout();
     setConfirmLogoutOpen(false);
     navigate('/login');
   };
 
-  const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
+  // Sidebar items are filtered so each role only sees allowed sections.
+  const allItems = navItems.filter((item) => item.roles.includes(user?.role));
 
+  // Layout renders the branded sidebar, protected page content, and logout dialog.
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       <aside className="bg-red-700 text-white w-full md:w-64 md:min-h-screen shrink-0">
         <div className="p-6 border-b border-red-600">
           <h1 className="text-lg font-bold flex items-center gap-2">
-            <span>🧯</span> FEMS
+            <ShieldCheck className="h-5 w-5" /> TWZ FEMS
           </h1>
-          <p className="text-red-200 text-sm mt-1">Fire Extinguisher System</p>
         </div>
         <nav className="p-4 space-y-1">
-          {allItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                location.pathname === item.path
-                  ? 'bg-red-600 text-white'
-                  : 'text-red-100 hover:bg-red-600/50'
-              }`}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
+          {allItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname === item.path
+                    ? 'bg-red-600 text-white'
+                    : 'text-red-100 hover:bg-red-600/50'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="p-4 mt-auto border-t border-red-600">
           <div className="px-4 py-2 text-sm">

@@ -6,13 +6,17 @@ import { useAuth } from '../context/AuthContext';
 import { forgotPasswordSchema } from '../schemas/authSchemas';
 
 export default function ForgotPassword() {
+  // Navigation and auth context move the user into the reset-password flow.
   const navigate = useNavigate();
   const { forgotPassword } = useAuth();
+
+  // Forgot-password form validates the email before requesting an OTP.
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: '' },
   });
 
+  // Submit handler sends the reset OTP and carries the email to the next page.
   const onSubmit = async ({ email }) => {
     try {
       await forgotPassword(email);
@@ -23,6 +27,7 @@ export default function ForgotPassword() {
     }
   };
 
+  // Page render shows the reset request form and navigation back to login.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-gray-100 p-4">
       <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-5">

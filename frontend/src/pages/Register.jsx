@@ -1,18 +1,23 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { registerSchema } from '../schemas/authSchemas';
 
 export default function Register() {
+  // Navigation and auth context move new users into OTP verification.
   const navigate = useNavigate();
   const { register: registerUser } = useAuth();
+
+  // Registration form validates identity and password fields before submission.
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(registerSchema),
     defaultValues: { firstName: '', lastName: '', email: '', password: '' },
   });
 
+  // Submit handler creates the account, triggers OTP email, and opens verification.
   const onSubmit = async (values) => {
     try {
       await registerUser(values);
@@ -23,11 +28,15 @@ export default function Register() {
     }
   };
 
+  // Registration screen renders brand identity plus the account creation form.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-gray-100 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🧯</div>
+          {/* Brand mark keeps account creation aligned with TWZ FEMS. */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+            <ShieldCheck className="h-8 w-8" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-lg p-8 space-y-5">

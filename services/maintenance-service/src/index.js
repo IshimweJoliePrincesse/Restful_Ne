@@ -10,9 +10,11 @@ const { logger, authMiddleware, roleMiddleware, errorHandler, notFoundHandler, p
 const app = express();
 const PORT = process.env.MAINTENANCE_PORT || 3005;
 
+// Service middleware parses JSON and applies shared security controls.
 app.use(express.json());
 applySecurity(app, cors, helmet, logger, 'maintenance-service');
 
+// Validation helper returns consistent 400 responses for invalid route inputs.
 function sendValidationErrors(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -52,12 +54,14 @@ function getPagination(queryParams, allowedSortFields = ['maintenanceDate']) {
   return { page, limit, skip: (page - 1) * limit, take: limit, orderBy: { [sortField]: direction } };
 }
 
+// List validation controls pagination and optional extinguisher filtering.
 const listValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('extinguisherId').optional().isUUID().withMessage('Fire extinguisher id must be a valid UUID'),
 ];
 
+// Create validation captures the maintenance action, date, issues, notes, and recommendations.
 const createValidation = [
   body('extinguisherId').isUUID().withMessage('Fire extinguisher id must be a valid UUID'),
   body('actionTaken').trim().isLength({ min: 3, max: 300 }).withMessage('Action taken must be 3-300 characters'),
@@ -67,6 +71,7 @@ const createValidation = [
   body('recommendations').optional().trim().isLength({ max: 1000 }).withMessage('Recommendations must be 1000 characters or less'),
 ];
 
+// List route returns maintenance history scoped by user role.
 app.get('/maintenance', authMiddleware, listValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -107,6 +112,7 @@ app.get('/maintenance', authMiddleware, listValidation, async (req, res, next) =
   }
 });
 
+// Create route lets admins and inspectors log maintenance evidence.
 app.post('/maintenance', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), createValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -141,6 +147,7 @@ app.post('/maintenance', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), c
   }
 });
 
+// Detail route returns one maintenance log while enforcing user ownership visibility.
 app.get('/maintenance/:id', authMiddleware, [param('id').isUUID()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -164,6 +171,7 @@ app.get('/maintenance/:id', authMiddleware, [param('id').isUUID()], async (req, 
   }
 });
 
+// Admin route soft-deletes maintenance records while preserving audit history.
 app.delete('/maintenance/:id', authMiddleware, roleMiddleware('ADMIN'), [param('id').isUUID()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -179,10 +187,12 @@ app.delete('/maintenance/:id', authMiddleware, roleMiddleware('ADMIN'), [param('
   }
 });
 
+// Health endpoint supports service availability checks.
 app.get('/health', (req, res) => {
   res.json({ success: true, service: 'maintenance-service', status: 'healthy' });
 });
 
+// Swagger metadata documents the public contract for maintenance workflows.
 registerSwagger(app, {
   title: 'Maintenance Service API',
   description: 'Create, list, view, and soft-delete maintenance logs.',
@@ -199,9 +209,11 @@ registerSwagger(app, {
   },
 });
 
+// Shared not-found and error handlers normalize API error responses.
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Service startup binds the configured port and logs readiness.
 app.listen(PORT, () => {
   logger.info(`Maintenance Service running on port ${PORT}`);
 });

@@ -10,6 +10,7 @@ const { logger, errorHandler, applySecurity } = require('shared');
 const app = express();
 const PORT = process.env.GATEWAY_PORT || 3000;
 
+// Service URLs define the upstream microservices reached through the gateway.
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3002';
 const EXTINGUISHER_SERVICE_URL = process.env.EXTINGUISHER_SERVICE_URL || 'http://localhost:3003';
@@ -18,8 +19,10 @@ const MAINTENANCE_SERVICE_URL = process.env.MAINTENANCE_SERVICE_URL || 'http://l
 const REPORTING_SERVICE_URL = process.env.REPORTING_SERVICE_URL || 'http://localhost:3006';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
 
+// Gateway-level security protects all proxied routes before forwarding.
 applySecurity(app, cors, helmet, logger, 'gateway');
 
+// Swagger options provide the unified API documentation for frontend and testers.
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -364,9 +367,11 @@ const swaggerOptions = {
   apis: [],
 };
 
+// Swagger UI exposes the gateway contract at /api-docs.
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Root route advertises gateway health and configured service targets.
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -384,10 +389,12 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health endpoint supports gateway availability checks.
 app.get('/health', async (req, res) => {
   res.json({ success: true, service: 'gateway', status: 'healthy' });
 });
 
+// Proxy factory preserves request bodies and normalizes upstream failures.
 function createServiceProxy(target, routePrefix) {
   return createProxyMiddleware({
     target,
@@ -405,6 +412,7 @@ function createServiceProxy(target, routePrefix) {
   });
 }
 
+// Route mounts forward API groups to the appropriate microservice.
 app.use('/auth', createServiceProxy(AUTH_SERVICE_URL, '/auth'));
 app.use('/users', createServiceProxy(USER_SERVICE_URL, '/users'));
 app.use('/extinguishers', createServiceProxy(EXTINGUISHER_SERVICE_URL, '/extinguishers'));
@@ -413,8 +421,10 @@ app.use('/maintenance', createServiceProxy(MAINTENANCE_SERVICE_URL, '/maintenanc
 app.use('/reports', createServiceProxy(REPORTING_SERVICE_URL, '/reports'));
 app.use('/notifications', createServiceProxy(NOTIFICATION_SERVICE_URL, '/notifications'));
 
+// Shared error handler catches gateway-level failures.
 app.use(errorHandler);
 
+// Gateway startup binds the public API port and logs documentation location.
 app.listen(PORT, () => {
   logger.info(`API Gateway running on port ${PORT}`);
   logger.info(`Swagger documentation: http://localhost:${PORT}/api-docs`);

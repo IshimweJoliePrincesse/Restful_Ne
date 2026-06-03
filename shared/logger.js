@@ -2,11 +2,13 @@ const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
 
+// Logs directory is created automatically so file transports never fail at startup.
 const logsDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Winston logger writes readable console logs plus persistent error/combined files.
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -32,4 +34,5 @@ const logger = winston.createLogger({
   ],
 });
 
+// Logger module exports the shared application logger.
 module.exports = logger;

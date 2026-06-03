@@ -10,6 +10,8 @@ const { logger, authMiddleware, roleMiddleware, errorHandler, notFoundHandler, a
 
 const app = express();
 const PORT = process.env.USER_PORT || 3002;
+
+// User select shape prevents password hashes from leaving the service.
 const USER_SELECT = {
   id: true,
   firstName: true,
@@ -22,6 +24,7 @@ const USER_SELECT = {
   updatedAt: true,
 };
 
+// Service middleware parses JSON and applies shared security controls.
 app.use(express.json());
 applySecurity(app, cors, helmet, logger, 'user-service');
 
@@ -72,12 +75,14 @@ function sendValidationErrors(req, res) {
   return false;
 }
 
+// List validation controls admin table pagination and role filtering.
 const listValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('role').optional().isIn(['ADMIN', 'INSPECTOR', 'USER']).withMessage('Role must be ADMIN, INSPECTOR, or USER'),
 ];
 
+// Create validation protects admin-created user accounts.
 const createValidation = [
   body('firstName').trim().isLength({ min: 2, max: 50 }).withMessage('First name must be 2-50 characters'),
   body('lastName').trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be 2-50 characters'),
@@ -88,6 +93,7 @@ const createValidation = [
   body('role').isIn(['ADMIN', 'INSPECTOR', 'USER']).withMessage('Role must be ADMIN, INSPECTOR, or USER'),
 ];
 
+// Update validation supports profile edits and admin role changes.
 const updateValidation = [
   param('id').isUUID().withMessage('User id must be a valid UUID'),
   body('firstName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('First name must be 2-50 characters'),
@@ -95,6 +101,7 @@ const updateValidation = [
   body('role').optional().isIn(['ADMIN', 'INSPECTOR', 'USER']).withMessage('Role must be ADMIN, INSPECTOR, or USER'),
 ];
 
+// Admin route lists users with search, role filters, sorting, and pagination.
 app.get('/users', authMiddleware, roleMiddleware('ADMIN'), listValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -123,6 +130,22 @@ app.get('/users', authMiddleware, roleMiddleware('ADMIN'), listValidation, async
   }
 });
 
+// Authenticated helper route exposes verified inspectors for assignment dropdowns.
+app.get('/users/inspectors', authMiddleware, async (_req, res, next) => {
+  try {
+    const inspectors = await prisma.user.findMany({
+      where: { role: 'INSPECTOR', isVerified: true, deletedAt: null },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
+    });
+
+    res.json({ success: true, data: inspectors });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin route creates a verified account without bypassing password hashing.
 app.post('/users', authMiddleware, roleMiddleware('ADMIN'), createValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -154,6 +177,7 @@ app.post('/users', authMiddleware, roleMiddleware('ADMIN'), createValidation, as
   }
 });
 
+// Detail route returns one user profile to admins or the account owner.
 app.get('/users/:id', authMiddleware, [param('id').isUUID()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -170,6 +194,7 @@ app.get('/users/:id', authMiddleware, [param('id').isUUID()], async (req, res, n
   }
 });
 
+// Update route handles self-service profile updates and admin role upgrades.
 app.put('/users/:id', authMiddleware, updateValidation, async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -210,6 +235,7 @@ app.put('/users/:id', authMiddleware, updateValidation, async (req, res, next) =
   }
 });
 
+// Admin route soft-deletes users while preventing self-deletion.
 app.delete('/users/:id', authMiddleware, roleMiddleware('ADMIN'), [param('id').isUUID()], async (req, res, next) => {
   try {
     if (sendValidationErrors(req, res)) return;
@@ -228,10 +254,12 @@ app.delete('/users/:id', authMiddleware, roleMiddleware('ADMIN'), [param('id').i
   }
 });
 
+// Health endpoint supports service availability checks.
 app.get('/health', (req, res) => {
   res.json({ success: true, service: 'user-service', status: 'healthy' });
 });
 
+// Swagger metadata documents the public contract for user management.
 registerSwagger(app, {
   title: 'User Management Service API',
   description: 'User listing, viewing, creation, role upgrade, profile update, and soft deletion APIs.',
@@ -249,9 +277,11 @@ registerSwagger(app, {
   },
 });
 
+// Shared not-found and error handlers normalize API error responses.
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Service startup binds the configured port and logs readiness.
 app.listen(PORT, () => {
   logger.info(`User Service running on port ${PORT}`);
 });

@@ -12,9 +12,11 @@ const PORT = process.env.NOTIFICATION_PORT || 3007;
 const EXPIRY_WARNING_DAYS = parseInt(process.env.EXPIRY_WARNING_DAYS || '30', 10);
 const RESPONSE_DEADLINE_DAYS = parseInt(process.env.RESPONSE_DEADLINE_DAYS || '7', 10);
 
+// Service middleware parses JSON and applies shared security controls.
 app.use(express.json());
 applySecurity(app, cors, helmet, logger, 'notification-service');
 
+// Expiry check finds active inventory near expiry and sends one recent alert per extinguisher.
 async function checkExpiringExtinguishers() {
   logger.info('Running expiry detection cron job...');
 
@@ -77,6 +79,7 @@ async function checkExpiringExtinguishers() {
   }
 }
 
+// Ignored-notification check marks unanswered alerts after the response deadline.
 async function checkIgnoredNotifications() {
   logger.info('Running ignored notification check...');
 
@@ -106,6 +109,7 @@ async function checkIgnoredNotifications() {
   }
 }
 
+// Daily cron keeps expiry and ignored-notification checks running automatically.
 cron.schedule('0 8 * * *', async () => {
   try {
     await checkExpiringExtinguishers();
@@ -115,6 +119,7 @@ cron.schedule('0 8 * * *', async () => {
   }
 });
 
+// List route returns notifications scoped to the user unless the requester is an admin.
 app.get('/notifications', authMiddleware, async (req, res, next) => {
   try {
     const { page, limit, skip, take, orderBy } = getPagination(req.query, ['sentAt', 'status', 'createdAt'], '-sentAt');
@@ -143,6 +148,7 @@ app.get('/notifications', authMiddleware, async (req, res, next) => {
   }
 });
 
+// Respond route records a user's acknowledgement and stops further escalation.
 app.post('/notifications/respond/:id', authMiddleware, [param('id').isUUID()], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -179,6 +185,7 @@ app.post('/notifications/respond/:id', authMiddleware, [param('id').isUUID()], a
   }
 });
 
+// Manual trigger lets admins run expiry and ignored checks on demand.
 app.post('/notifications/trigger-check', authMiddleware, async (req, res, next) => {
   try {
     if (req.user.role !== 'ADMIN') {
@@ -192,10 +199,12 @@ app.post('/notifications/trigger-check', authMiddleware, async (req, res, next) 
   }
 });
 
+// Health endpoint supports service availability checks.
 app.get('/health', (req, res) => {
   res.json({ success: true, service: 'notification-service', status: 'healthy' });
 });
 
+// Swagger metadata documents the public contract for notifications.
 registerSwagger(app, {
   title: 'Notification Service API',
   description: 'Expiry alert detection, notification listing, responses, and manual checks.',
@@ -207,9 +216,11 @@ registerSwagger(app, {
   },
 });
 
+// Shared not-found and error handlers normalize API error responses.
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Service startup binds the configured port and logs cron configuration.
 app.listen(PORT, () => {
   logger.info(`Notification Service running on port ${PORT}`);
   logger.info(`Cron scheduled: daily at 08:00 (expiry warning: ${EXPIRY_WARNING_DAYS} days, response deadline: ${RESPONSE_DEADLINE_DAYS} days)`);

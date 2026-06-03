@@ -3,26 +3,31 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}-refresh`;
 
+// Access token generation signs the authenticated user's authorization claims.
 function generateToken(payload) {
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || process.env.JWT_EXPIRES_IN || '15m',
   });
 }
 
+// Refresh token generation signs longer-lived session rotation claims.
 function generateRefreshToken(payload) {
   return jwt.sign(payload, JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 }
 
+// Access token verification confirms signature and expiry before route access.
 function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
+// Refresh token verification is separate so refresh tokens use their own secret.
 function verifyRefreshToken(token) {
   return jwt.verify(token, JWT_REFRESH_SECRET);
 }
 
+// Auth middleware accepts bearer tokens and report-download query tokens.
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   const queryToken = req.query?.token;
@@ -39,6 +44,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// Admin middleware protects routes that are restricted to administrators.
 function adminMiddleware(req, res, next) {
   if (req.user?.role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'Admin access required.' });

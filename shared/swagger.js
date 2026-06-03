@@ -1,6 +1,7 @@
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
+// Swagger registration builds per-service OpenAPI docs with shared auth/error schemas.
 function registerSwagger(app, { title, description, port, paths = {}, schemas = {} }) {
   const spec = swaggerJsdoc({
     definition: {
@@ -32,4 +33,5 @@ function registerSwagger(app, { title, description, port, paths = {}, schemas = 
   return spec;
 }
 
+// Swagger module exports the service documentation registration helper.
 module.exports = { registerSwagger };

@@ -9,16 +9,24 @@ import { formatDisplayDate } from '../utils/date';
 import { useAuth } from '../context/AuthContext';
 
 export default function Maintenance() {
+  // Auth state controls who can create maintenance records.
   const { isAdmin, isInspector } = useAuth();
   const queryClient = useQueryClient();
+
+  // Table params keep maintenance history searchable and paginated.
   const [params, setParams] = useState({ page: 1, limit: 10, search: '' });
+
+  // Maintenance form validates action details before logging work.
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(maintenanceSchema),
     defaultValues: { extinguisherId: '', actionTaken: '', maintenanceDate: '', issuesIdentified: '', notes: '', recommendations: '' },
   });
 
+  // Page queries load maintenance logs and extinguisher choices.
   const logs = useQuery({ queryKey: ['maintenance', params], queryFn: async () => (await api.get('/maintenance', { params })).data });
   const extinguishers = useQuery({ queryKey: ['extinguishers-options'], queryFn: async () => (await api.get('/extinguishers', { params: { limit: 100 } })).data.data });
+
+  // Create mutation saves maintenance evidence and refreshes history.
   const create = useMutation({
     mutationFn: (values) => api.post('/maintenance', values),
     onSuccess: () => {
@@ -29,13 +37,14 @@ export default function Maintenance() {
     onError: (err) => toast.error(err.response?.data?.message || 'Validation errors'),
   });
 
+  // Derived table data provides safe defaults while records load.
   const rows = logs.data?.data || [];
   const meta = logs.data?.meta || { page: 1, totalPages: 1 };
 
+  // Page render shows the maintenance form, search, history table, and pagination.
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">Maintenance</h1>
-      <p className="text-gray-500 mb-6">Create maintenance logs and review maintenance history.</p>
+      <h1 className="text-2xl font-bold mb-6">Maintenance</h1>
 
       {(isAdmin || isInspector) && (
         <form onSubmit={handleSubmit((values) => create.mutate(values))} className="bg-white border rounded-xl p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">

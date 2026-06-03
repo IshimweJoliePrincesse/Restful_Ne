@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Bell, ClipboardCheck, ShieldCheck, TriangleAlert, XCircle } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import { isExpiringWithinDays } from '../utils/date';
 
-function StatCard({ title, value, icon, color }) {
+// Stat cards keep dashboard metrics visually consistent across roles.
+function StatCard({ title, value, icon: Icon, color, iconColor }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center justify-between">
@@ -12,18 +14,24 @@ function StatCard({ title, value, icon, color }) {
           <p className="text-sm text-gray-500">{title}</p>
           <p className="text-3xl font-bold mt-1">{value}</p>
         </div>
-        <div className={`text-3xl p-3 rounded-xl ${color}`}>{icon}</div>
+        <div className={`p-3 rounded-xl ${color}`}>
+          <Icon className={`h-7 w-7 ${iconColor}`} />
+        </div>
       </div>
     </div>
   );
 }
 
 export default function Dashboard() {
+  // Auth context determines which dashboard title and admin-only actions appear.
   const { user, isAdmin, isInspector } = useAuth();
+
+  // Dashboard state stores summary counts and recent notification rows.
   const [stats, setStats] = useState({ extinguishers: 0, notifications: 0, expired: 0, expiringSoon: 0, pendingInspections: 0 });
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Data loading aggregates multiple microservice responses into dashboard metrics.
   useEffect(() => {
     async function fetchData() {
       try {
@@ -54,6 +62,7 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // Loading state keeps the dashboard stable while service calls resolve.
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -62,21 +71,21 @@ export default function Dashboard() {
     );
   }
 
+  // Main dashboard render shows role title, metric cards, notifications, and admin tools.
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           {isAdmin ? 'Admin Dashboard' : isInspector ? 'Inspector Dashboard' : 'User Dashboard'}
         </h1>
-        <p className="text-gray-500 mt-1">Welcome back, {user?.name}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Fire Extinguishers" value={stats.extinguishers} icon="🧯" color="bg-red-50" />
-        <StatCard title="Expiring Soon" value={stats.expiringSoon} icon="⚠️" color="bg-yellow-50" />
-        <StatCard title="Notifications" value={stats.notifications} icon="🔔" color="bg-blue-50" />
-        <StatCard title="Expired" value={stats.expired} icon="⛔" color="bg-gray-100" />
-        <StatCard title="Pending Inspections" value={stats.pendingInspections} icon="✅" color="bg-green-50" />
+        <StatCard title="Fire Extinguishers" value={stats.extinguishers} icon={ShieldCheck} color="bg-red-50" iconColor="text-red-700" />
+        <StatCard title="Expiring Soon" value={stats.expiringSoon} icon={TriangleAlert} color="bg-yellow-50" iconColor="text-yellow-700" />
+        <StatCard title="Notifications" value={stats.notifications} icon={Bell} color="bg-blue-50" iconColor="text-blue-700" />
+        <StatCard title="Expired" value={stats.expired} icon={XCircle} color="bg-gray-100" iconColor="text-gray-700" />
+        <StatCard title="Pending Inspections" value={stats.pendingInspections} icon={ClipboardCheck} color="bg-green-50" iconColor="text-green-700" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">

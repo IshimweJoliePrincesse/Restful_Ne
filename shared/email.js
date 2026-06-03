@@ -3,6 +3,7 @@ const logger = require('./logger');
 
 let transporter = null;
 
+// SMTP configuration check keeps local development from failing without email credentials.
 function isSmtpConfigured() {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
@@ -11,6 +12,7 @@ function isSmtpConfigured() {
   return true;
 }
 
+// Transporter creation is lazy so services only connect to SMTP when email is sent.
 function getTransporter() {
   if (transporter) return transporter;
 
@@ -30,6 +32,7 @@ function getTransporter() {
   return transporter;
 }
 
+// Generic sender centralizes logging, SMTP fallback, and error reporting.
 async function sendEmail({ to, subject, html }) {
   if (!isSmtpConfigured()) {
     logger.warn(`Email not sent (SMTP not configured). To: ${to}, Subject: ${subject}`);
@@ -54,6 +57,7 @@ async function sendEmail({ to, subject, html }) {
   }
 }
 
+// Registration OTP email sends the account verification code.
 async function sendOtpEmail(email, name, otp) {
   return sendEmail({
     to: email,
@@ -71,6 +75,7 @@ async function sendOtpEmail(email, name, otp) {
   });
 }
 
+// Password reset OTP email sends the reset code for account recovery.
 async function sendPasswordResetOtpEmail(email, name, otp) {
   return sendEmail({
     to: email,
@@ -88,6 +93,7 @@ async function sendPasswordResetOtpEmail(email, name, otp) {
   });
 }
 
+// Inspector upgrade email notifies users when an admin changes their role.
 async function sendInspectorUpgradeEmail(email, name) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   return sendEmail({
@@ -106,6 +112,7 @@ async function sendInspectorUpgradeEmail(email, name) {
   });
 }
 
+// Expiry notification email alerts assigned users about upcoming extinguisher expiry.
 async function sendExpiryNotificationEmail(email, name, extinguisherCode, expiryDate, notificationId) {
   const apiUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
   return sendEmail({
@@ -125,4 +132,5 @@ async function sendExpiryNotificationEmail(email, name, extinguisherCode, expiry
   });
 }
 
+// Email module exports all templates through one shared interface.
 module.exports = { sendEmail, sendOtpEmail, sendPasswordResetOtpEmail, sendInspectorUpgradeEmail, sendExpiryNotificationEmail };

@@ -38,6 +38,7 @@ function sanitizeValue(value) {
   return value.replace(/[<>]/g, '').replace(/javascript:/gi, '').trim();
 }
 
+// Request sanitizer applies value sanitization to body, query, and route params.
 function sanitizeRequest(req, _res, next) {
   req.body = sanitizeValue(req.body);
   const sanitizedQuery = sanitizeValue(req.query);
@@ -49,6 +50,7 @@ function sanitizeRequest(req, _res, next) {
   next();
 }
 
+// Request logger records method, URL, status, and response duration.
 function requestLogger(logger, serviceName) {
   return (req, res, next) => {
     const startedAt = Date.now();
@@ -59,6 +61,7 @@ function requestLogger(logger, serviceName) {
   };
 }
 
+// CSRF token handler issues a readable token cookie for the frontend client.
 function csrfTokenHandler(req, res, next) {
   let csrfToken = req.cookies?.csrfToken;
   if (!csrfToken) {
@@ -73,6 +76,7 @@ function csrfTokenHandler(req, res, next) {
   next();
 }
 
+// CSRF protection rejects unsafe requests with mismatched CSRF tokens.
 function csrfProtection(req, res, next) {
   const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
   if (!unsafeMethods.includes(req.method)) return next();
@@ -85,6 +89,7 @@ function csrfProtection(req, res, next) {
   next();
 }
 
+// CORS configuration limits browser access to approved frontend origins.
 function configureCors() {
   const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
@@ -101,6 +106,7 @@ function configureCors() {
   };
 }
 
+// Rate limiter protects services from noisy or abusive request bursts.
 function createRateLimiter() {
   return rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
@@ -111,6 +117,7 @@ function createRateLimiter() {
   });
 }
 
+// Security applicator installs the common production middleware stack.
 function applySecurity(app, corsMiddleware, helmetMiddleware, logger, serviceName) {
   app.use(helmetMiddleware());
   app.use(corsMiddleware(configureCors()));
@@ -123,6 +130,7 @@ function applySecurity(app, corsMiddleware, helmetMiddleware, logger, serviceNam
   if (logger) app.use(requestLogger(logger, serviceName));
 }
 
+// Security module exports middleware builders used by every service.
 module.exports = {
   applySecurity,
   configureCors,

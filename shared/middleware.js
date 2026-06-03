@@ -1,3 +1,4 @@
+// Error handler logs failures and returns a consistent JSON error body.
 function errorHandler(err, req, res, next) {
   const logger = require('./logger');
   logger.error(`${err.message}${err.stack ? `\n${err.stack}` : ''}`);
@@ -10,6 +11,7 @@ function errorHandler(err, req, res, next) {
   });
 }
 
+// Not-found handler returns a consistent response for unmatched routes.
 function notFoundHandler(req, res) {
   res.status(404).json({
     success: false,
@@ -17,4 +19,5 @@ function notFoundHandler(req, res) {
   });
 }
 
+// Middleware module exports shared fallback handlers for every service.
 module.exports = { errorHandler, notFoundHandler };

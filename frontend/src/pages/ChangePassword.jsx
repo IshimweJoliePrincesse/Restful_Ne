@@ -7,17 +7,24 @@ import { changePasswordSchema } from '../schemas/authSchemas';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ChangePassword() {
+  // Auth context exposes the secure password-change API call.
   const { changePassword } = useAuth();
+
+  // Pending values are held until the user confirms the action in a dialog.
   const [pendingValues, setPendingValues] = useState(null);
+
+  // Password form validates the current and new password before confirmation.
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { currentPassword: '', newPassword: '' },
   });
 
+  // Submit opens the confirmation dialog instead of changing the password immediately.
   const onSubmit = async (values) => {
     setPendingValues(values);
   };
 
+  // Confirmation handler sends the password update and clears the form on success.
   const confirmChangePassword = async () => {
     try {
       await changePassword(pendingValues);
@@ -29,6 +36,7 @@ export default function ChangePassword() {
     }
   };
 
+  // Page render shows the password form and the custom confirmation dialog.
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Change Password</h1>

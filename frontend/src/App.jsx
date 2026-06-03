@@ -18,9 +18,9 @@ import Users from './pages/Users';
 import Profile from './pages/Profile';
 import ChangePassword from './pages/ChangePassword';
 
-function AppLayout({ children }) {
+function AppLayout({ children, allowedRoles }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={allowedRoles}>
       <Layout>{children}</Layout>
     </ProtectedRoute>
   );
@@ -36,14 +36,14 @@ export default function App() {
           <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/extinguishers" element={<AppLayout><Extinguishers /></AppLayout>} />
-          <Route path="/inspections" element={<AppLayout><Inspections /></AppLayout>} />
-          <Route path="/maintenance" element={<AppLayout><Maintenance /></AppLayout>} />
-          <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-          <Route path="/notifications" element={<AppLayout><Notifications /></AppLayout>} />
-          <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
-          <Route path="/change-password" element={<AppLayout><ChangePassword /></AppLayout>} />
+          <Route path="/dashboard" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR', 'USER']}><Dashboard /></AppLayout>} />
+          <Route path="/extinguishers" element={<AppLayout allowedRoles={['ADMIN', 'USER']}><Extinguishers /></AppLayout>} />
+          <Route path="/inspections" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR', 'USER']}><Inspections /></AppLayout>} />
+          <Route path="/maintenance" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR']}><Maintenance /></AppLayout>} />
+          <Route path="/reports" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR']}><Reports /></AppLayout>} />
+          <Route path="/notifications" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR', 'USER']}><Notifications /></AppLayout>} />
+          <Route path="/profile" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR', 'USER']}><Profile /></AppLayout>} />
+          <Route path="/change-password" element={<AppLayout allowedRoles={['ADMIN', 'INSPECTOR', 'USER']}><ChangePassword /></AppLayout>} />
           <Route path="/users" element={<ProtectedRoute adminOnly><Layout><Users /></Layout></ProtectedRoute>} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

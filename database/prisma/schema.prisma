@@ -41,7 +41,6 @@ enum ExtinguisherStatus {
   ACTIVE
   UNDER_MAINTENANCE
   EXPIRED
-  RETIRED
 }
 
 /// Approved extinguisher types from the project requirements.
@@ -207,7 +206,7 @@ model Notification {
 model InspectionSchedule {
   id             String             @id @default(uuid())
   extinguisherId String
-  inspectorId    String
+  inspectorId    String?
   createdById    String?
   scheduledDate  DateTime
   status         InspectionStatus   @default(PENDING)
@@ -216,7 +215,7 @@ model InspectionSchedule {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   extinguisher   FireExtinguisher   @relation(fields: [extinguisherId], references: [id], onDelete: Cascade)
-  inspector      User               @relation("AssignedInspector", fields: [inspectorId], references: [id], onDelete: Restrict)
+  inspector      User?              @relation("AssignedInspector", fields: [inspectorId], references: [id], onDelete: Restrict)
   createdBy      User?              @relation("InspectionCreator", fields: [createdById], references: [id], onDelete: SetNull)
   result         InspectionResult?
 

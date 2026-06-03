@@ -5,13 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 
 export default function Notifications() {
+  // Auth state controls admin-only manual expiry checks.
   const { isAdmin } = useAuth();
+
+  // Notification state tracks list data, loading state, trigger state, and pagination.
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
 
+  // Fetches paginated notifications for the current page.
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications', { params: { page, limit: 10 } });
@@ -24,8 +28,10 @@ export default function Notifications() {
     }
   };
 
+  // Reload notifications whenever the page changes.
   useEffect(() => { fetchNotifications(); }, [page]);
 
+  // Marks a pending notification as responded by the current user.
   const handleRespond = async (id) => {
     try {
       await api.post(`/notifications/respond/${id}`);
@@ -36,6 +42,7 @@ export default function Notifications() {
     }
   };
 
+  // Admin action triggers the backend expiry scan and refreshes the list.
   const handleTriggerCheck = async () => {
     setTriggering(true);
     try {
@@ -49,12 +56,12 @@ export default function Notifications() {
     }
   };
 
+  // Page render shows status legend, notification cards, admin trigger, and pagination.
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-gray-500 mt-1">Expiry alerts and response tracking</p>
         </div>
         {isAdmin && (
           <button onClick={handleTriggerCheck} disabled={triggering}

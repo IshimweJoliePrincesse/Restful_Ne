@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const extinguisherSchema = z.object({
   serialNumber: z.string().min(2, 'Serial number is required').max(80),
   location: z.string().min(2, 'Location is required').max(120),
+  userId: z.string().uuid('Choose a valid assigned user').optional().or(z.literal('')),
   type: z.enum(['Water', 'CO2', 'Foam', 'Dry Chemical']),
   size: z.enum(['2.5 lb', '5 lb', '9 lb', '12 lb']),
   installationDate: z.string().min(1, 'Installation date is required'),
@@ -11,7 +12,7 @@ export const extinguisherSchema = z.object({
 
 export const inspectionSchema = z.object({
   extinguisherId: z.string().uuid('Choose an extinguisher'),
-  inspectorId: z.string().uuid('Choose an inspector'),
+  inspectorId: z.string().uuid('Choose an inspector').optional().or(z.literal('')),
   scheduledDate: z.string().min(1, 'Scheduled date is required'),
   notes: z.string().max(500).optional().or(z.literal('')),
 });

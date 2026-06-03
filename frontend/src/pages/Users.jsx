@@ -5,10 +5,14 @@ import api from '../api/axios';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Users() {
+  // Query client refreshes user lists after role and delete mutations.
   const queryClient = useQueryClient();
+
+  // Local UI state tracks table filters, pagination, and confirmation dialog content.
   const [params, setParams] = useState({ page: 1, limit: 10, search: '', role: '' });
   const [dialog, setDialog] = useState({ open: false });
 
+  // Users query loads the admin user-management table from the API.
   const usersQuery = useQuery({
     queryKey: ['users', params],
     queryFn: async () => {
@@ -17,6 +21,7 @@ export default function Users() {
     },
   });
 
+  // Role mutation upgrades or downgrades users between USER and INSPECTOR.
   const updateRole = useMutation({
     mutationFn: ({ id, role }) => api.put(`/users/${id}`, { role }),
     onSuccess: () => {
@@ -26,6 +31,7 @@ export default function Users() {
     onError: (err) => toast.error(err.response?.data?.message || 'Server error'),
   });
 
+  // Delete mutation soft-deletes a selected user after confirmation.
   const deleteUser = useMutation({
     mutationFn: (id) => api.delete(`/users/${id}`),
     onSuccess: () => {
@@ -35,14 +41,15 @@ export default function Users() {
     onError: (err) => toast.error(err.response?.data?.message || 'Server error'),
   });
 
+  // Derived table data provides safe fallbacks for loading and empty states.
   const users = usersQuery.data?.data || [];
   const meta = usersQuery.data?.meta || { page: 1, totalPages: 1 };
 
+  // Page render shows filters, users table, pagination, and delete confirmation dialog.
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Users</h1>
-        <p className="text-gray-500 mt-1">Manage registered users, roles, and account access.</p>
       </div>
 
       <div className="bg-white border rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3">

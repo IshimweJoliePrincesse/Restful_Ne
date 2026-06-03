@@ -11,9 +11,11 @@ const { logger, authMiddleware, roleMiddleware, errorHandler, notFoundHandler, a
 const app = express();
 const PORT = process.env.REPORTING_PORT || 3006;
 
+// Service middleware parses JSON and applies shared security controls.
 app.use(express.json());
 applySecurity(app, cors, helmet, logger, 'reporting-service');
 
+// Validation helper returns consistent 400 responses for invalid route inputs.
 function sendValidationErrors(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -55,12 +57,14 @@ function toCsv(rows) {
   return [headers.join(','), ...rows.map((row) => headers.map((header) => escapeValue(row[header])).join(','))].join('\n');
 }
 
+// Report persistence keeps generated report payloads available for later export.
 async function saveReport(type, title, payload, userId) {
   return prisma.report.create({
     data: { type, title, payload, generatedById: userId },
   });
 }
 
+// Admin route lists previously generated reports for export/audit review.
 app.get('/reports', authMiddleware, roleMiddleware('ADMIN'), [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
@@ -89,6 +93,7 @@ app.get('/reports', authMiddleware, roleMiddleware('ADMIN'), [
   }
 });
 
+// Inventory report summarizes stock totals and creation counts by period.
 app.get('/reports/inventory', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), async (req, res, next) => {
   try {
     const now = new Date();
@@ -112,6 +117,7 @@ app.get('/reports/inventory', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR
   }
 });
 
+// Inspection report summarizes pending, completed, and overdue schedules.
 app.get('/reports/inspection', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), async (req, res, next) => {
   try {
     const [pending, completed, overdue] = await Promise.all([
@@ -128,6 +134,7 @@ app.get('/reports/inspection', authMiddleware, roleMiddleware('ADMIN', 'INSPECTO
   }
 });
 
+// Compliance report counts expired, near-expiry, and compliant extinguishers.
 app.get('/reports/compliance', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), async (req, res, next) => {
   try {
     const now = new Date();
@@ -148,6 +155,7 @@ app.get('/reports/compliance', authMiddleware, roleMiddleware('ADMIN', 'INSPECTO
   }
 });
 
+// Maintenance report summarizes recent maintenance history and frequency.
 app.get('/reports/maintenance', authMiddleware, roleMiddleware('ADMIN', 'INSPECTOR'), async (req, res, next) => {
   try {
     const thirtyDaysAgo = new Date();
@@ -178,6 +186,7 @@ app.get('/reports/maintenance', authMiddleware, roleMiddleware('ADMIN', 'INSPECT
   }
 });
 
+// CSV export route streams recent generated reports in spreadsheet-friendly format.
 app.get('/reports/export.csv', authMiddleware, roleMiddleware('ADMIN'), [
   query('type').isIn(['INVENTORY', 'INSPECTION', 'COMPLIANCE', 'MAINTENANCE']).withMessage('Invalid report type'),
 ], async (req, res, next) => {
@@ -205,6 +214,7 @@ app.get('/reports/export.csv', authMiddleware, roleMiddleware('ADMIN'), [
   }
 });
 
+// PDF export route renders recent generated reports into a downloadable PDF.
 app.get('/reports/export.pdf', authMiddleware, roleMiddleware('ADMIN'), [
   query('type').isIn(['INVENTORY', 'INSPECTION', 'COMPLIANCE', 'MAINTENANCE']).withMessage('Invalid report type'),
 ], async (req, res, next) => {
@@ -235,10 +245,12 @@ app.get('/reports/export.pdf', authMiddleware, roleMiddleware('ADMIN'), [
   }
 });
 
+// Health endpoint supports service availability checks.
 app.get('/health', (req, res) => {
   res.json({ success: true, service: 'reporting-service', status: 'healthy' });
 });
 
+// Swagger metadata documents the public contract for reporting.
 registerSwagger(app, {
   title: 'Reporting Service API',
   description: 'Inventory, inspection, compliance, maintenance, CSV export, and printable PDF export APIs.',
@@ -254,9 +266,11 @@ registerSwagger(app, {
   },
 });
 
+// Shared not-found and error handlers normalize API error responses.
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Service startup binds the configured port and logs readiness.
 app.listen(PORT, () => {
   logger.info(`Reporting Service running on port ${PORT}`);
 });

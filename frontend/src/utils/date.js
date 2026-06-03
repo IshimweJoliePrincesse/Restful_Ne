@@ -41,6 +41,18 @@ export function formatDisplayDate(dateValue) {
   return new Date(y, m - 1, d).toLocaleDateString();
 }
 
+export function formatDisplayDateTime(dateValue) {
+  if (!dateValue) return '';
+  return new Date(dateValue).toLocaleString();
+}
+
+export function toDateTimeLocalInput(dateValue) {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
 export function getExpiryStatus(expiryDate) {
   const days = getDaysUntilExpiry(expiryDate);
 

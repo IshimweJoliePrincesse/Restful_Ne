@@ -6,14 +6,18 @@ import { useAuth } from '../context/AuthContext';
 import { resetPasswordSchema } from '../schemas/authSchemas';
 
 export default function ResetPassword() {
+  // Routing hooks prefill email from the forgot-password step and redirect after reset.
   const navigate = useNavigate();
   const location = useLocation();
   const { resetPassword } = useAuth();
+
+  // Reset form validates email, OTP, and new password before submission.
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { email: location.state?.email || '', otp: '', password: '' },
   });
 
+  // Submit handler verifies the OTP and stores the new password.
   const onSubmit = async (values) => {
     try {
       await resetPassword(values);
@@ -24,6 +28,7 @@ export default function ResetPassword() {
     }
   };
 
+  // Page render shows password reset fields and a link back to login.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-gray-100 p-4">
       <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-5">
