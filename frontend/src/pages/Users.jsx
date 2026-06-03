@@ -3,8 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '../api/axios';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
 
 export default function Users() {
+  // Auth context identifies the logged-in admin so self-role actions can be hidden.
+  const { user } = useAuth();
+
   // Query client refreshes user lists after role and delete mutations.
   const queryClient = useQueryClient();
 
@@ -16,7 +20,9 @@ export default function Users() {
   const usersQuery = useQuery({
     queryKey: ['users', params],
     queryFn: async () => {
-      const res = await api.get('/users', { params });
+      const requestParams = { ...params };
+      if (!requestParams.role) delete requestParams.role;
+      const res = await api.get('/users', { params: requestParams });
       return res.data;
     },
   });
@@ -77,37 +83,43 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium">{u.name}</td>
-                  <td className="px-6 py-4">{u.email}</td>
-                  <td className="px-6 py-4">{u.role}</td>
-                  <td className="px-6 py-4">{u.isVerified ? 'Verified' : 'Pending'}</td>
-                  <td className="px-6 py-4 space-x-2">
-                    {u.role !== 'INSPECTOR' && (
-                      <button onClick={() => updateRole.mutate({ id: u.id, role: 'INSPECTOR' })} className="text-blue-600 hover:underline">
-                        Make Inspector
-                      </button>
-                    )}
-                    {u.role !== 'USER' && (
-                      <button onClick={() => updateRole.mutate({ id: u.id, role: 'USER' })} className="text-gray-600 hover:underline">
-                        Make User
-                      </button>
-                    )}
-                    <button onClick={() => setDialog({
-                      open: true,
-                      title: 'Confirm Delete',
-                      message: `Do you want to delete ${u.name}?`,
-                      onConfirm: () => {
-                        setDialog({ open: false });
-                        deleteUser.mutate(u.id);
-                      },
-                    })} className="text-red-600 hover:underline">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {users.map((u) => {
+                const isCurrentUser = u.id === user?.id;
+                return (
+                  <tr key={u.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium">{u.name}</td>
+                    <td className="px-6 py-4">{u.email}</td>
+                    <td className="px-6 py-4">{u.role}</td>
+                    <td className="px-6 py-4">{u.isVerified ? 'Verified' : 'Pending'}</td>
+                    <td className="px-6 py-4 space-x-2">
+                      {!isCurrentUser && u.role !== 'INSPECTOR' && (
+                        <button onClick={() => updateRole.mutate({ id: u.id, role: 'INSPECTOR' })} className="text-blue-600 hover:underline">
+                          Make Inspector
+                        </button>
+                      )}
+                      {!isCurrentUser && u.role !== 'USER' && (
+                        <button onClick={() => updateRole.mutate({ id: u.id, role: 'USER' })} className="text-gray-600 hover:underline">
+                          Make User
+                        </button>
+                      )}
+                      {!isCurrentUser && (
+                        <button onClick={() => setDialog({
+                          open: true,
+                          title: 'Confirm Delete',
+                          message: `Do you want to delete ${u.name}?`,
+                          onConfirm: () => {
+                            setDialog({ open: false });
+                            deleteUser.mutate(u.id);
+                          },
+                        })} className="text-red-600 hover:underline">
+                          Delete
+                        </button>
+                      )}
+                      {isCurrentUser && <span className="text-gray-400">Current admin</span>}
+                    </td>
+                  </tr>
+                );
+              })}
               {!users.length && (
                 <tr><td colSpan="5" className="px-6 py-8 text-center text-gray-500">No users found.</td></tr>
               )}

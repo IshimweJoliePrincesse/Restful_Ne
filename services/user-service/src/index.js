@@ -79,7 +79,7 @@ function sendValidationErrors(req, res) {
 const listValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-  query('role').optional().isIn(['ADMIN', 'INSPECTOR', 'USER']).withMessage('Role must be ADMIN, INSPECTOR, or USER'),
+  query('role').optional({ checkFalsy: true }).isIn(['ADMIN', 'INSPECTOR', 'USER']).withMessage('Role must be ADMIN, INSPECTOR, or USER'),
 ];
 
 // Create validation protects admin-created user accounts.
@@ -203,6 +203,9 @@ app.put('/users/:id', authMiddleware, updateValidation, async (req, res, next) =
     }
     if (req.body.role && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Only admins can change roles' });
+    }
+    if (req.body.role && req.user.id === req.params.id) {
+      return res.status(400).json({ success: false, message: 'Admins cannot change their own role' });
     }
 
     const existing = await prisma.user.findFirst({ where: { id: req.params.id, deletedAt: null } });
